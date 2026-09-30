@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HVAC Design Data Checker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12303D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HVAC Check">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EAF1F3;--panel:#FFFFFF;--ink:#12303D;--muted:#557180;--line:#C9D8DE;--head:#DCE8EC;
+  --cold:#127A9A;--cold-soft:#D5ECF2;--field:#F5F9FA;
+  --ok:#2E8A5E;--ok-soft:#DDF1E6;--warn:#B7791F;--warn-soft:#FBEFD6;--bad:#C0392B;--bad-soft:#F8DEDA;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1C23;--panel:#15272F;--ink:#E4EEF1;--muted:#8FA9B4;--line:#2A4350;--head:#1B323C;--cold:#4EB8D6;--cold-soft:#173A47;--field:#10222A;
+  --ok:#5CC495;--ok-soft:#173A2C;--warn:#E6B45A;--warn-soft:#3A2E17;--bad:#F07A6B;--bad-soft:#3F1F1B}}
+:root[data-theme="dark"]{
+  --bg:#0E1C23;--panel:#15272F;--ink:#E4EEF1;--muted:#8FA9B4;--line:#2A4350;--head:#1B323C;--cold:#4EB8D6;--cold-soft:#173A47;--field:#10222A;
+  --ok:#5CC495;--ok-soft:#173A2C;--warn:#E6B45A;--warn-soft:#3A2E17;--bad:#F07A6B;--bad-soft:#3F1F1B}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans","Segoe UI",Roboto,Arial,sans-serif;font-size:15px;line-height:1.45}
+.wrap{padding:16px 12px 40px;max-width:1500px;margin:0 auto}
+h1{font-size:1.4rem;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:.9rem;margin:0}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-top:12px}
+.set{display:flex;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+label.f{display:flex;flex-direction:column;gap:2px;font-size:.75rem;color:var(--muted);width:92px}
+input,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;min-width:0}
+input:focus,button:focus-visible,td.c:focus-visible,td.rn:focus-visible{outline:2px solid var(--cold);outline-offset:1px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;min-width:170px;text-align:left;font:inherit;color:inherit}
+.card small{display:block;color:var(--muted);font-size:.75rem}
+.card b{font-size:1.15rem;font-variant-numeric:tabular-nums;color:var(--cold)}
+.card span{display:block;font-size:.78rem;color:var(--muted)}
+.tip{font-size:.82rem;color:var(--muted);margin:12px 0 6px}
+.tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;-webkit-overflow-scrolling:touch}
+table{border-collapse:separate;border-spacing:0;font-size:.84rem;white-space:nowrap;width:max-content;min-width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+thead th{background:var(--head);font-weight:600;font-size:.78rem;color:var(--muted);position:sticky;top:0}
+thead tr.g th{color:var(--ink);text-align:center;border-left:1px solid var(--line)}
+th.l,td.l{text-align:left}
+th.bl,td.bl{border-left:1px solid var(--line)}
+td:first-child,th:first-child{position:sticky;left:0;z-index:2;text-align:left;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+thead th:first-child{background:var(--head);z-index:3}
+td.rn{cursor:pointer;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+td.rn small{display:block;color:var(--muted);font-size:.72rem}
+td.c{cursor:pointer;color:var(--cold);text-decoration:underline dotted;text-underline-offset:3px}
+td.c:hover{background:var(--cold-soft)}
+td.s{color:var(--ink)}
+td.ok{background:var(--ok-soft);color:var(--ok)} td.warn{background:var(--warn-soft);color:var(--warn)} td.bad{background:var(--bad-soft);color:var(--bad)}
+tr.tot td{font-weight:700;background:var(--head)}
+tr.grp td{background:var(--ink);color:var(--bg);font-weight:600;font-size:.82rem;text-align:left}
+tr.grp td:first-child{background:var(--ink)}
+tr.sub td{font-weight:600;background:var(--cold-soft);border-bottom:2px solid var(--cold)}
+tr.sub td:first-child{background:var(--cold-soft)}
+.h2{font-size:1.05rem;margin:18px 0 8px}
+.eb{display:flex;height:12px;width:160px;border-radius:4px;overflow:hidden;background:var(--field)}
+.eb span{height:100%}
+tr.tot td:first-child{background:var(--head)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button.b{font:inherit;font-size:.88rem;border:1px solid var(--cold);color:var(--cold);background:transparent;border-radius:999px;padding:6px 14px;cursor:pointer}
+button.b.solid{background:var(--cold);color:#fff}
+button.b.del{border-color:var(--bad);color:var(--bad)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+dialog{border:0;border-radius:16px;padding:0;max-width:640px;width:calc(100% - 24px);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(10,25,32,.55)}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px 6px}
+.dh h3{margin:0;font-size:1.05rem}
+.dh small{color:var(--muted);display:block;font-size:.8rem}
+.x{font:inherit;font-size:1.4rem;line-height:1;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.db{padding:4px 16px 16px;max-height:70vh;overflow:auto}
+.step{border-left:3px solid var(--cold);padding:6px 10px;margin:8px 0;background:var(--field);border-radius:0 8px 8px 0}
+.step .t{font-size:.78rem;color:var(--muted)}
+.step .e{font-size:.95rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.step .r{font-weight:700;color:var(--cold)}
+.dnote{font-size:.85rem;color:var(--muted);margin-top:10px}
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.egrid label.f{width:auto}
+ul.sum{margin:6px 0;padding-left:18px;font-size:.85rem;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.dsec{font-size:.8rem;font-weight:600;color:var(--ink);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+.chk{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;cursor:pointer}
+.chk input{width:18px;height:18px}
+.refd{margin-top:12px;font-size:.85rem;color:var(--muted)} .refd summary{cursor:pointer;margin-bottom:6px}
+.pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.pg div{background:var(--cold-soft);border-radius:8px;padding:6px 10px;font-size:.85rem}
+.pg small{display:block;color:var(--muted);font-size:.72rem} .pg b{font-size:1.05rem;color:var(--cold)}
+.new{color:var(--warn);font-weight:600}
+.tag{display:inline-block;color:#fff;font-size:.72rem;font-weight:600;padding:1px 8px;border-radius:999px}
+.basis{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.78rem;color:var(--muted);margin:4px 0 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>HVAC design data checker</h1>
+<p class="sub">Powerhouse and Administration Building air conditioning system design data. Tap any blue number to see how it was calculated. Tap a room name to edit its data.</p>
+
+<div class="bar">
+  <div class="set">
+    <label class="f">Outdoor DB °C<input id="to" type="number" step="0.5" value="35"></label>
+    <label class="f">Air density kg/m³<input id="rho" type="number" step="0.01" value="1.2"></label>
+    <label class="f">cp kJ/kg·K<input id="cp" type="number" step="0.001" value="1.006"></label>
+    <label class="f">Load factor F<input id="F" type="number" step="0.005" value="1.155"></label>
+    <label class="f" style="width:150px">Airflow used for load<select id="qmode"><option value="dwg">Drawing value</option><option value="calc">Calculated from basis</option></select></label>
+    <label class="f">Chillers<input id="nch" type="number" step="1" value="3"></label>
+    <label class="f">% each<input id="pch" type="number" step="5" value="40"></label>
+    <label class="f">AHUs<input id="nahu" type="number" step="1" value="4"></label>
+    <label class="f">% each<input id="pahu" type="number" step="5" value="30"></label>
+  </div>
+  <button class="card" data-w="P:F"><small>Fitted factor from drawing</small><b id="fitF">–</b><span>tap for derivation</span></button>
+  <button class="card" data-w="P:tot"><small>Total plant load</small><b id="cTot">–</b><span id="cTotS"></span></button>
+  <button class="card" data-w="P:ch"><small>Each chiller</small><b id="cCh">–</b><span id="cChS"></span></button>
+  <button class="card" data-w="P:ahu"><small>Each AHU</small><b id="cAhu">–</b><span id="cAhuS"></span></button>
+</div>
+
+<h2 class="h2">Cooling load by elevation</h2>
+<div class="tw"><table id="elev"></table></div>
+<div class="legend"><span><i style="background:var(--cold)"></i>Intake air (AHU)</span><span><i style="background:var(--warn)"></i>Fan coil</span></div>
+
+<h2 class="h2">Design data by elevation</h2>
+<p class="tip">Scroll the table sideways. Blue = calculated (tap for working). Black = value from the drawing.</p>
+<div class="basis" id="basisLeg"></div>
+<div class="tw"><table id="tbl"></table></div>
+<div class="legend"><span><i style="background:var(--ok)"></i>Matches drawing</span><span><i style="background:var(--warn)"></i>Check (small difference)</span><span><i style="background:var(--bad)"></i>Does not match</span></div>
+<div class="btns">
+  <button class="b solid" id="add">Add room</button>
+  <button class="b" id="csv">Copy results as CSV</button>
+  <button class="b del" id="reset">Restore drawing data</button>
+</div>
+</div>
+
+<dialog id="dlg"><div class="dh"><div><h3 id="dT"></h3><small id="dS"></small></div><button class="x" id="dx" aria-label="Close">×</button></div><div class="db" id="dB"></div></dialog>
+
+<script>
+/* a = floor area m², h = height m. b = airflow basis: ach | exh | heat | min | dwg */
+const DATA=[
+ {e:"5.50",n:"Oil treatment room",dim:"Open space",a:0,h:0,ti:30,q:700,ach:"",kw:4.31,b:"exh",xf:"EF15",xq:700},
+ {e:"6.00",n:"Water treatment room",dim:"Open space",a:0,h:0,ti:30,q:10100,ach:"",kw:47.19,b:"heat"},
+ {e:"11.00",n:"Turbine floor",dim:"Open space",a:0,h:0,ti:30,q:36000,ach:"",kw:272.25,b:"heat"},
+ {e:"15.50",n:"Generator floor",dim:"Open space",a:0,h:0,ti:30,q:66000,ach:"",kw:483.24,b:"heat"},
+ {e:"15.50",n:"Mechanical maint. office",dim:"(13.75×5.50)×2.8",a:75.625,h:2.8,ti:30,q:4000,ach:"",kw:31.87,b:"heat"},
+ {e:"15.50",n:"Unassigned area",dim:"(343)×4.0",a:343,h:4.0,ti:30,q:2750,ach:2,kw:15.79,b:"ach"},
+ {e:"20.00",n:"Computer and relay room",dim:"(10×5.5)×3.0",a:55,h:3.0,ti:24,q:850,ach:2,kw:3.6,b:"dwg",fl:16.19,fq:4,fm:"FE10",fe:7.24,ft:28.96},
+ {e:"20.00",n:"Control room",dim:"(160)×3.0",a:160,h:3.0,ti:24,q:1250,ach:2,kw:5.32,b:"exh",xf:"EF19",xq:1250,fl:34.82,fq:7,fm:"FE12",fe:8.70,ft:60.90},
+ {e:"20.00",n:"Telephone room",dim:"(7×5.5)×3.0",a:38.5,h:3.0,ti:24,q:450,ach:2,kw:1.92,b:"dwg",fl:4.32,fq:2,fm:"FE06",fe:4.57,ft:9.14},
+ {e:"20.00",n:"Office room",dim:"(4×5.5)×3.3",a:22,h:3.3,ti:24,q:350,ach:2,kw:1.48,b:"dwg",fl:1.46,fq:2,fm:"FE04",fe:3.25,ft:6.50},
+ {e:"20.00",n:"Dining and storage room",dim:"(28.3)×3.3",a:28.3,h:3.3,ti:30,q:400,ach:2,kw:2.0,b:"dwg"},
+ {e:"20.00",n:"Battery room",dim:"(41.1)×3.7",a:41.1,h:3.7,ti:30,q:2000,ach:10,kw:9.85,b:"exh",xf:"EF18",xq:2000},
+ {e:"20.00",n:"Rectifier room",dim:"(5.2×8.5)×3.8",a:44.2,h:3.8,ti:30,q:3000,ach:17,kw:23.47,b:"heat"},
+ {e:"20.00",n:"Station switchgear room",dim:"Open space",a:0,h:0,ti:30,q:9000,ach:"",kw:71.42,b:"heat"},
+ {e:"24.00",n:"Electrical & mech. store",dim:"Open space",a:0,h:0,ti:30,q:10000,ach:"",kw:47.41,b:"heat"},
+ {e:"24.00",n:"Electrical workshop",dim:"(77)×3.7",a:77,h:3.7,ti:24,q:600,ach:2,kw:2.57,b:"ach",fl:3.66,fq:1,fm:"CE06",fe:4.81,ft:4.81},
+ {e:"24.00",n:"Mechanical workshop",dim:"(188.9)×3.7",a:188.9,h:3.7,ti:24,q:1400,ach:2,kw:5.97,b:"ach",fl:7.51,fq:2,fm:"CE06",fe:4.81,ft:9.62},
+ {e:"28.40",n:"Electrical maint. room & corridor",dim:"(236)×4.8",a:236,h:4.8,ti:24,q:2450,ach:2,kw:13.34,b:"ach"},
+ {e:"33.65",n:"Erection area",dim:"Open space",a:0,h:0,ti:30,q:35000,ach:"",kw:68.60,b:"dwg"},
+ {e:"37.50",n:"Exhibition area",dim:"(228.8)×3.1",a:228.8,h:3.1,ti:24,q:1740,ach:2.5,kw:7.42,b:"ach",fl:24.01,fq:3,fm:"FE12",fe:8.70,ft:26.10},
+ {e:"37.50",n:"Office room 1 (superintend)",dim:"(15)×3.2",a:15,h:3.2,ti:24,q:100,ach:2,kw:0.44,b:"ach",fl:1.58,fq:1,fm:"FE04",fe:3.25,ft:3.25},
+ {e:"37.50",n:"Office room 2",dim:"(12)×2.2",a:12,h:2.2,ti:24,q:100,ach:3.7,kw:0.44,b:"min",qmin:100,fl:1.35,fq:1,fm:"FE04",fe:3.25,ft:3.25},
+ {e:"37.50",n:"Office room 3",dim:"(12)×2.2",a:12,h:2.2,ti:24,q:100,ach:3.7,kw:0.44,b:"min",qmin:100,fl:1.35,fq:1,fm:"FE04",fe:3.25,ft:3.25},
+ {e:"37.50",n:"Office room & pantry",dim:"(150)×3.2",a:150,h:3.2,ti:24,q:1000,ach:2,kw:4.25,b:"ach",fl:14.59,fq:3,fm:"FE10",fe:7.24,ft:21.72},
+ {e:"37.50",n:"Conference room",dim:"(9×6.5)×3.2",a:58.5,h:3.2,ti:24,q:1160,ach:6,kw:4.96,b:"ach",fl:13.54,fq:2,fm:"FE10",fe:7.24,ft:14.48},
+ {e:"42.00",n:"Elevator machine room",dim:"(4×2)×2.8",a:8,h:2.8,ti:30,q:2500,ach:100,kw:13.68,b:"exh",xf:"EF25",xq:2500},
+ {e:"",n:"Powerhouse machine hall",dim:"Open space",a:0,h:0,ti:30,q:0,ach:"",kw:64.06,b:"dwg"}
+];
+const SHEET={q:193000,cfm:113585,kw:1217.24,fl:124.29,total:1341.53,ch:536.61,ahu:365.17};
+const BASIS={
+  ach:{t:"ACH",c:"#127A9A",d:"Room volume × required air changes, rounded up to 50 m³/h"},
+  exh:{t:"Exhaust",c:"#8A5AA8",d:"Equal to the exhaust fan airflow (balanced, slightly positive)"},
+  heat:{t:"Heat",c:"#C8431F",d:"Airflow needed to absorb equipment heat with cooled supply air"},
+  min:{t:"Min",c:"#3E9B7A",d:"Minimum outdoor air of 100 m³/h per room"},
+  dwg:{t:"Drawing",c:"#7A8A91",d:"No basis found; value from contract drawing"}
+};
+
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value)||0;
+const f=(x,d=2)=>(x==null||!isFinite(x))?"–":x.toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const has=v=>v!==""&&v!=null&&!isNaN(v);
+const up50=x=>Math.ceil(x/50-1e-9)*50;
+let rows=[], T={}, G=[];
+
+function S(){return{To:num("to"),rho:num("rho"),cp:num("cp"),F:num("F"),mode:$("qmode").value}}
+
+/* fill supply temperature Ts and equipment heat from the drawing (run once on fresh data) */
+function prefill(){
+  const s=S();
+  rows.forEach(r=>{
+    if(r.q>0&&r.kw>0){
+      let ts=s.To-r.kw/(r.q/3600*s.rho*s.cp*s.F);
+      if(Math.abs(ts-r.ti)<0.5) ts=r.ti;
+      r.ts=Math.round(ts*10)/10;
+      if(r.b==="heat") r.qeq=Math.round(r.q/3600*s.rho*s.cp*(r.ti-r.ts)*10)/10;
+    } else { r.ts=r.ti; }
+  });
+}
+
+function reqFlow(r,V,s){
+  switch(r.b){
+    case "ach": return (V&&has(r.ach)&&r.ach!=="")?up50(V*r.ach):null;
+    case "exh": return has(r.xq)?+r.xq:null;
+    case "min": return has(r.qmin)?+r.qmin:100;
+    case "heat": return (has(r.qeq)&&r.ti>r.ts)?r.qeq*3600/(s.rho*s.cp*(r.ti-r.ts)):null;
+    default: return null;
+  }
+}
+function calc(r){
+  const s=S();
+  const V=(r.a>0&&r.h>0)?r.a*r.h:null;
+  const qreq=reqFlow(r,V,s);
+  const qd=(r.nw&&r.b!=="dwg")?null:(has(r.q)?+r.q:null);
+  const q=((s.mode==="calc"||qd==null)&&qreq!=null)?qreq:(qd||0);
+  const ts=has(r.ts)?+r.ts:+r.ti;
+  const m=q/3600*s.rho;
+  const fixed=q===0&&has(r.kw)&&r.kw>0;               // load with no airflow: take drawing value
+  const tot=fixed?+r.kw:m*s.cp*(s.To-ts)*s.F;
+  const absorbed=m*s.cp*(r.ti-ts);
+  const fcap=r.fl>0?(+r.fq||0)*(+r.fe||0):null;
+  return{V,qreq,qd,q,cfm:q*0.5886,ach:V?q/V:null,ts,m,tot,absorbed,fixed,fcap,fpct:fcap?fcap/r.fl*100:null};
+}
+function cls(c,sheet,tol=0.02){
+  if(c==null||!has(sheet)||!sheet) return "";
+  const d=Math.abs(c-sheet)/Math.abs(sheet);
+  return d<=tol?"ok":d<=0.1?"warn":"bad";
+}
+
+function rowHtml(r,i){
+  const x=r._x, B=BASIS[r.b]||BASIS.dwg;
+  const achC=x.ach==null?"":(has(r.ach)&&r.ach!==""?(x.ach>=r.ach*0.95?"ok":"bad"):"");
+  const fc=r.fl>0;
+  const fpC=x.fpct==null?"":x.fpct<100?"bad":x.fpct>200?"warn":"ok";
+  return `<tr>
+<td class="rn" tabindex="0" data-edit="${i}">${esc(r.n)}<small>EL ${esc(r.e)}${r.nw?' · <span class="new">added</span>':""}</small></td>
+<td class="l bl s">${esc(r.dim)}</td>
+<td class="c" tabindex="0" data-w="${i}:V">${x.V?f(x.V,1):"–"}</td>
+<td class="s">${r.ti}</td>
+<td class="l bl"><span class="tag" style="background:${B.c}">${B.t}</span></td>
+<td class="c ${x.qd==null?"":cls(x.qreq,x.qd,0.05)}" tabindex="0" data-w="${i}:qreq">${x.qreq==null?"–":f(x.qreq,0)}</td>
+<td class="s">${x.qd==null?"–":f(x.qd,0)}</td>
+<td class="c" tabindex="0" data-w="${i}:cfm">${f(x.cfm,0)}</td>
+<td class="s">${has(r.ach)&&r.ach!==""?r.ach:"–"}</td>
+<td class="c ${achC}" tabindex="0" data-w="${i}:ach">${x.ach==null?"–":f(x.ach,1)}</td>
+<td class="c bl" tabindex="0" data-w="${i}:ts">${x.q>0?f(x.ts,1):"–"}</td>
+<td class="c" tabindex="0" data-w="${i}:abs">${x.q>0?f(x.absorbed):"–"}</td>
+<td class="c bl ${has(r.kw)?cls(x.tot,+r.kw,0.05):""}" tabindex="0" data-w="${i}:tot">${f(x.tot)}</td>
+<td class="s">${has(r.kw)&&r.kw!==""?f(+r.kw):"–"}</td>
+<td class="bl s">${fc?f(r.fl):"–"}</td>
+<td class="s">${fc?r.fq:"–"}</td>
+<td class="s l">${fc?esc(r.fm):"–"}</td>
+<td class="s">${fc?f(r.fe):"–"}</td>
+<td class="c ${fc?cls(x.fcap,+r.ft,0.005):""}" tabindex="0" data-w="${i}:fcap">${fc?f(x.fcap):"–"}</td>
+<td class="s">${fc&&has(r.ft)?f(+r.ft):"–"}</td>
+<td class="c ${fpC}" tabindex="0" data-w="${i}:fpct">${fc?f(x.fpct,0)+"%":"–"}</td>
+</tr>`}
+
+function groups(){
+  const m=new Map();
+  rows.forEach((r,i)=>{const k=String(r.e||"").trim();if(!m.has(k))m.set(k,[]);m.get(k).push(i)});
+  const keys=[...m.keys()].sort((a,b)=>{const x=parseFloat(a),y=parseFloat(b);
+    if(isNaN(x)&&isNaN(y))return 0;if(isNaN(x))return 1;if(isNaN(y))return -1;return x-y});
+  return keys.map(k=>{const idx=m.get(k),t={q:0,qd:0,cfm:0,abs:0,tot:0,kw:0,fl:0,fcap:0};
+    idx.forEach(i=>{const r=rows[i],x=r._x;t.q+=x.q;t.qd+=x.qd||0;t.cfm+=x.cfm;t.abs+=x.absorbed;t.tot+=x.tot;t.kw+=+r.kw||0;t.fl+=+r.fl||0;t.fcap+=x.fcap||0});
+    t.cool=t.tot+t.fl;
+    return{key:k,label:k===""?"No elevation":"EL "+k,idx,t}});
+}
+
+function render(){
+  const s=S();
+  let sq=0,sqd=0,scfm=0,sabs=0,stot=0,skw=0,sfl=0,sfcap=0;
+  rows.forEach(r=>{const x=calc(r); r._x=x;
+    sq+=x.q; sqd+=x.qd||0; scfm+=x.cfm; sabs+=x.absorbed; stot+=x.tot; skw+=+r.kw||0; sfl+=+r.fl||0; sfcap+=x.fcap||0;});
+  T={sq,sqd,scfm,sabs,stot,skw,sfl,sfcap};
+  G=groups();
+  const body=G.map((g,gi)=>{const t=g.t;
+    return `<tr class="grp"><td>${esc(g.label)}</td><td colspan="20" class="l">${g.idx.length} area${g.idx.length>1?"s":""}</td></tr>`+
+    g.idx.map(i=>rowHtml(rows[i],i)).join("")+
+    `<tr class="sub"><td>Subtotal ${esc(g.label)}</td><td class="bl"></td><td></td><td></td><td class="bl"></td><td></td>
+<td>${f(t.qd,0)}</td><td class="c" tabindex="0" data-w="G:${gi}:cfm">${f(t.cfm,0)}</td><td></td><td></td>
+<td class="bl"></td><td class="c" tabindex="0" data-w="G:${gi}:abs">${f(t.abs)}</td>
+<td class="c bl" tabindex="0" data-w="G:${gi}:tot">${f(t.tot)}</td><td>${f(t.kw)}</td>
+<td class="c bl" tabindex="0" data-w="G:${gi}:fl">${t.fl?f(t.fl):"–"}</td><td></td><td></td><td></td>
+<td class="c" tabindex="0" data-w="G:${gi}:fcap">${t.fcap?f(t.fcap):"–"}</td><td></td><td></td></tr>`}).join("");
+  $("tbl").innerHTML=`<thead>
+<tr class="g"><th rowspan="2" style="vertical-align:bottom">Area / room</th><th colspan="3">Room</th><th colspan="6">Ventilation intake air</th><th colspan="2">Supply air</th><th colspan="2">Intake air cooling load kW</th><th colspan="7">Fan coil units</th></tr>
+<tr><th class="l bl">Size (area)×H</th><th>Vol m³</th><th>Ti °C</th>
+<th class="l bl">Basis</th><th>Calc m³/h</th><th>Drawing m³/h</th><th>CFM${s.mode==="calc"?" (calc)":""}</th><th>ACH req.</th><th>ACH</th>
+<th class="bl">Ts °C</th><th>Room heat kW</th>
+<th class="bl">Calc</th><th>Drawing</th>
+<th class="bl">Load kW</th><th>Qty</th><th class="l">Model</th><th>kW each</th><th>Total calc</th><th>Total dwg</th><th>Cap./load</th></tr></thead>
+<tbody>${body}
+<tr class="tot"><td>Total</td><td class="bl"></td><td></td><td></td><td class="bl"></td><td></td>
+<td class="c" tabindex="0" data-w="T:q">${f(sqd,0)}</td><td class="c" tabindex="0" data-w="T:cfm">${f(scfm,0)}</td><td></td><td></td>
+<td class="bl"></td><td class="c" tabindex="0" data-w="T:abs">${f(sabs)}</td>
+<td class="c bl ${cls(stot,SHEET.kw,0.001)}" tabindex="0" data-w="T:tot">${f(stot)}</td><td>${f(SHEET.kw)}</td>
+<td class="c bl ${cls(sfl,SHEET.fl,0.001)}" tabindex="0" data-w="T:fl">${f(sfl)}</td><td></td><td></td><td></td>
+<td class="c" tabindex="0" data-w="T:fcap">${f(sfcap)}</td><td>${f(SHEET.fl)}</td><td class="c" tabindex="0" data-w="T:fpct">${f(sfl?sfcap/sfl*100:0,0)}%</td></tr>
+</tbody>`;
+  $("basisLeg").innerHTML=Object.values(BASIS).map(b=>`<span><span class="tag" style="background:${b.c}">${b.t}</span> ${b.d}</span>`).join("");
+  renderElev();
+  $("fitF").textContent=f(fitF().avg,3);
+  const tot=stot+sfl;
+  $("cTot").textContent=f(tot)+" kW"; $("cTotS").textContent=`drawing ${f(SHEET.total)} kW`;
+  $("cCh").textContent=f(tot*num("pch")/100)+" kW"; $("cChS").textContent=`${num("nch")} × ${num("pch")}%, drawing ${f(SHEET.ch)}`;
+  $("cAhu").textContent=f(stot*num("pahu")/100)+" kW"; $("cAhuS").textContent=`${num("nahu")} × ${num("pahu")}%, drawing ${f(SHEET.ahu)}`;
+  save();
+}
+function renderElev(){
+  const all=G.reduce((a,g)=>a+g.t.cool,0)||1, mx=Math.max(...G.map(g=>g.t.cool),1);
+  $("elev").innerHTML=`<thead><tr><th>Elevation</th><th>Areas</th><th>Intake air kW</th><th>Fan coil kW</th><th>Cooling load kW</th><th>TR</th><th>Share</th><th class="l" style="min-width:170px"></th></tr></thead><tbody>`+
+  G.map((g,gi)=>`<tr><td>${esc(g.label)}</td><td>${g.idx.length}</td>
+   <td class="c" tabindex="0" data-w="G:${gi}:tot">${f(g.t.tot)}</td>
+   <td class="c" tabindex="0" data-w="G:${gi}:fl">${g.t.fl?f(g.t.fl):"–"}</td>
+   <td class="c" tabindex="0" data-w="G:${gi}:cool"><b>${f(g.t.cool)}</b></td>
+   <td>${f(g.t.cool/3.517,1)}</td><td>${f(g.t.cool/all*100,1)}%</td>
+   <td class="l"><span class="eb"><span style="width:${g.t.tot/mx*100}%;background:var(--cold)"></span><span style="width:${g.t.fl/mx*100}%;background:var(--warn)"></span></span></td></tr>`).join("")+
+  `<tr class="tot"><td>Total</td><td>${rows.length}</td><td class="c" tabindex="0" data-w="T:tot">${f(T.stot)}</td><td class="c" tabindex="0" data-w="T:fl">${f(T.sfl)}</td>
+   <td class="c" tabindex="0" data-w="P:tot"><b>${f(T.stot+T.sfl)}</b></td><td>${f((T.stot+T.sfl)/3.517,1)}</td><td>100%</td><td></td></tr></tbody>`;
+}
+
+function fitF(){
+  const s=S(), pts=[];
+  rows.forEach(r=>{
+    if(!(r.q>0&&r.kw>0)) return;
+    const air=r.q/3600*s.rho*s.cp*(s.To-r.ti);
+    if(air<=0) return;
+    const k=r.kw/air;
+    if(k>0.9&&k<1.35) pts.push({n:r.n,k,kw:r.kw,air});
+  });
+  return{pts,avg:pts.length?pts.reduce((a,b)=>a+b.k,0)/pts.length:0};
+}
+
+/* ---------- working ---------- */
+const step=(t,e,r)=>`<div class="step"><div class="t">${t}</div><div class="e">${e}${r?` = <span class="r">${r}</span>`:""}</div></div>`;
+const note=t=>`<p class="dnote">${t}</p>`;
+function work(key){
+  const s=S(), [a,b,c]=key.split(":");
+  if(a==="P") return plantWork(b,s);
+  if(a==="T") return totalWork(b);
+  if(a==="G") return groupWork(+b,c);
+  const r=rows[+a], x=r._x, sub=`${r.n}, EL ${r.e}`;
+  const useQ=s.mode==="calc"&&x.qreq!=null?"calculated":"drawing";
+  const W={
+    V:()=>x.V?["Room volume",[step("Volume = floor area × height",`${f(r.a,2)} m² × ${f(r.h,2)} m`,f(x.V,2)+" m³"),note(`Size on drawing: ${esc(r.dim)}.`)]]
+      :["Room volume",[note("Open space. The drawing gives no dimensions, so volume and ACH cannot be calculated.")]],
+    qreq:()=>["Airflow basis: "+(BASIS[r.b]||BASIS.dwg).t,flowWork(r,x,s)],
+    cfm:()=>["Airflow in CFM",[step(`1 m³/h = 0.5886 CFM (${useQ} airflow)`,`${f(x.q,0)} m³/h × 0.5886`,f(x.cfm,1)+" CFM")]],
+    ach:()=>x.ach==null?["Air changes per hour",[note("No room volume, so ACH cannot be calculated.")]]:
+      ["Air changes per hour",[step("ACH = airflow ÷ room volume",`${f(x.q,0)} m³/h ÷ ${f(x.V,1)} m³`,f(x.ach,2)+" /h"),
+       has(r.ach)&&r.ach!==""?step("Compare with required",`${f(x.ach,2)} vs ${r.ach}`,x.ach>=r.ach*0.95?"meets requirement":"below requirement"):"",
+       note("Drawing note: closed spaces need at least 2 ACH, conference room 6 ACH.")]],
+    ts:()=>(r.nw||!has(r.kw)||!(r.q>0))?["Supply air temperature Ts",[step(r.b==="heat"?"Entered supply temperature":"Supplied at room temperature (neutral air)","",f(x.ts,1)+" °C")]]:["Supply air temperature Ts",[
+      step("Ts = To − drawing load ÷ (ṁ × cp × F)",`${s.To} − ${f(+r.kw)} ÷ (${f(r.q/3600*s.rho,4)} × ${s.cp} × ${s.F})`,f(s.To-r.kw/(r.q/3600*s.rho*s.cp*s.F),2)+" °C"),
+      step("Value used (rounded to 0.1 °C)","",f(x.ts,1)+" °C"),
+      note(x.ts===+r.ti?"Ts equals room temperature: outdoor air is cooled only to room condition (neutral air). Room heat is handled by the fan coils or is negligible."
+        :"Ts is below room temperature: the cooled outdoor air also absorbs heat inside the space. Back-calculated from the drawing; edit it by tapping the room name.")]],
+    abs:()=>["Room heat absorbed by supply air",[
+      step("Mass flow ṁ = m³/h ÷ 3600 × ρ",`${f(x.q,0)} ÷ 3600 × ${s.rho}`,f(x.m,4)+" kg/s"),
+      step("Heat = ṁ × cp × (Ti − Ts)",`${f(x.m,4)} × ${s.cp} × (${r.ti} − ${f(x.ts,1)})`,f(x.absorbed,2)+" kW"),
+      note(x.absorbed>0.01?"This is the equipment/process heat the intake air carries away from the space.":"Zero because the air is supplied at room temperature.")]],
+    tot:()=>x.fixed?["Intake air cooling load",[note("No airflow is given on the drawing for this area, so the load is taken directly from the drawing: "+f(+r.kw)+" kW.")]]:
+      ["Intake air cooling load",[
+      step(`Mass flow ṁ (${useQ} airflow)`,`${f(x.q,0)} ÷ 3600 × ${s.rho}`,f(x.m,4)+" kg/s"),
+      step("Cooling outdoor air from To to Ts",`ΔT = ${s.To} − ${f(x.ts,1)}`,f(s.To-x.ts,1)+" K"),
+      step("Sensible = ṁ × cp × ΔT",`${f(x.m,4)} × ${s.cp} × ${f(s.To-x.ts,1)}`,f(x.m*s.cp*(s.To-x.ts),3)+" kW"),
+      step("× load factor F",`${f(x.m*s.cp*(s.To-x.ts),3)} × ${s.F}`,f(x.tot,2)+" kW"),
+      has(r.kw)&&r.kw!==""?step("Compare with drawing",`${f(x.tot,2)} vs ${f(+r.kw,2)}`,`difference ${f(x.tot-(+r.kw||0),2)} kW`):note("Added room: no drawing value to compare with.")]],
+    fcap:()=>["Installed fan coil capacity",[step("Qty × capacity each",`${r.fq} × ${f(r.fe)} kW (${esc(r.fm)})`,f(x.fcap)+" kW"),
+      step("Compare with drawing total",`${f(x.fcap)} vs ${f(+r.ft)}`,Math.abs(x.fcap-r.ft)<0.01?"matches":"differs")]],
+    fpct:()=>["Fan coil capacity vs room load",[step("Capacity ÷ room load × 100",`${f(x.fcap)} ÷ ${f(r.fl)} × 100`,f(x.fpct,1)+"%"),
+      note("Room load excludes ventilation air. Below 100% is undersized; above about 200% the unit removes little moisture. Some rooms on the drawing are marked 150% (standby capacity).")]]
+  };
+  const [t,parts]=W[b]();
+  return[t,sub,parts.join("")];
+}
+function flowWork(r,x,s){
+  const cmp=q=>x.qd==null?"":step("Compare with drawing",`${f(q,0)} vs ${f(x.qd,0)} m³/h`,Math.abs(q-x.qd)/x.qd<=0.05?"matches":`differs ${f((q-x.qd)/x.qd*100,1)}%`);
+  if(r.b==="ach"){
+    if(!x.V) return[note("No room volume available.")];
+    return[step("Required = volume × ACH",`${f(x.V,1)} m³ × ${r.ach} /h`,f(x.V*r.ach,1)+" m³/h"),
+      step("Round up to nearest 50 m³/h","",f(x.qreq,0)+" m³/h"),cmp(x.qreq),
+      note("Basis: drawing note requires at least 2 ACH for closed spaces and 6 ACH for the conference room.")];
+  }
+  if(r.b==="exh") return[step(`Exhaust fan ${esc(r.xf||"")}`,"",f(x.qreq,0)+" m³/h"),step("Intake = exhaust","",f(x.qreq,0)+" m³/h"),cmp(x.qreq),
+      note("Intake air replaces the air removed by the exhaust fan (see the exhaust ventilation table on the drawing). The drawing requires slightly positive room pressure, so intake should not be less than exhaust.")];
+  if(r.b==="min") return[step("Minimum outdoor air per room","",f(x.qreq,0)+" m³/h"),
+      x.V?step("Resulting ACH",`${f(x.qreq,0)} ÷ ${f(x.V,1)}`,f(x.qreq/x.V,1)+" /h"):"",cmp(x.qreq),
+      note("The room is so small that 2 ACH gives under 100 m³/h, so a 100 m³/h minimum was used. That is why the drawing shows 3.7 ACH.")];
+  if(r.b==="heat"){
+    if(x.qreq==null) return[note("Enter equipment heat and a supply temperature below room temperature.")];
+    return[step("Equipment heat in the space (back-calculated, editable)","",f(+r.qeq,1)+" kW"),
+      step("Air temperature rise in the space",`Ti − Ts = ${r.ti} − ${f(x.ts,1)}`,f(r.ti-x.ts,1)+" K"),
+      step("Airflow = heat × 3600 ÷ (ρ × cp × ΔT)",`${f(+r.qeq,1)} × 3600 ÷ (${s.rho} × ${s.cp} × ${f(r.ti-x.ts,1)})`,f(x.qreq,0)+" m³/h"),cmp(x.qreq),
+      note((r.nw?"":"Equipment heat was back-calculated from the drawing. ")+"Cooled outdoor air is supplied at Ts and warms up to room temperature while absorbing equipment heat. Update the equipment heat for current machines (tap the room name) to get the new airflow; set “Airflow used for load” to Calculated to carry it into the cooling load.")];
+  }
+  const out=[note("No calculation basis could be identified from the drawing. The value comes from the contract drawings (drawing note: intake air for open spaces per contract drawings).")];
+  if(x.V&&has(r.ach)&&r.ach!=="") out.push(step("Minimum ACH check",`${f(x.qd,0)} ÷ ${f(x.V,1)}`,f(x.qd/x.V,1)+` /h (required ${r.ach})`));
+  return out;
+}
+function groupWork(gi,b){
+  const g=G[gi],t=g.t,sub=`${g.label}, ${g.idx.length} area${g.idx.length>1?"s":""}`;
+  if(b==="cool"){
+    const li=g.idx.map(i=>{const r=rows[i];return `<li>${esc(r.n)}: ${f(r._x.tot)} + ${f(+r.fl||0)} = ${f(r._x.tot+(+r.fl||0))}</li>`}).join("");
+    return["Cooling load at "+g.label,sub,`<ul class="sum">${li}</ul>`+
+      step("Intake air load + fan coil load",`${f(t.tot)} + ${f(t.fl)}`,f(t.cool)+" kW")+
+      step("In tons of refrigeration",`${f(t.cool)} ÷ 3.517`,f(t.cool/3.517,1)+" TR")+
+      step("Share of building load",`${f(t.cool)} ÷ ${f(T.stot+T.sfl)} × 100`,f(t.cool/(T.stot+T.sfl)*100,1)+"%")];
+  }
+  const P={cfm:["Intake airflow CFM",r=>r._x.cfm,0,t.cfm],abs:["Room heat absorbed kW",r=>r._x.absorbed,2,t.abs],tot:["Intake air cooling load kW",r=>r._x.tot,2,t.tot],
+    fl:["Fan coil room load kW",r=>+r.fl||0,2,t.fl],fcap:["Installed fan coil capacity kW",r=>r._x.fcap||0,2,t.fcap]}[b];
+  const li=g.idx.map(i=>`<li>${esc(rows[i].n)}: ${f(P[1](rows[i]),P[2])}</li>`).join("");
+  return["Subtotal: "+P[0],sub,`<ul class="sum">${li}</ul>`+step("Sum at "+g.label,"",f(P[3],P[2]))];
+}
+function totalWork(b){
+  const list=(fn,d=2)=>`<ul class="sum">${rows.map(r=>{const v=fn(r);return v?`<li>${esc(r.n)}: ${f(v,d)}</li>`:""}).join("")}</ul>`;
+  const M={
+    q:["Total intake airflow (drawing)",[list(r=>r._x.qd,0),step("Sum of all rooms","",f(T.sqd,0)+" m³/h"),step("Drawing total",`${f(SHEET.q,0)}`,T.sqd===SHEET.q?"matches":"differs")]],
+    cfm:["Total intake airflow, CFM",[step("",`${f(T.sq,0)} × 0.5886`,f(T.scfm,0)+" CFM"),note(`Drawing shows ${f(SHEET.cfm,0)} CFM (sum of rounded row values).`)]],
+    abs:["Total room heat absorbed by intake air",[list(r=>r._x.absorbed),step("Sum","",f(T.sabs)+" kW")]],
+    tot:["Total intake air cooling load",[list(r=>r._x.tot),step("Sum of rows","",f(T.stot)+" kW"),
+      step("Drawing total",`${f(SHEET.kw)}`,`difference ${f(T.stot-SHEET.kw)} kW`),
+      note(Math.abs(T.stot-SHEET.kw)>0.1?"The rows do not add up to the total written on the drawing. Either a row value was misread from the photo, or the drawing total has an addition error. Check each row against the original.":"Sum matches the drawing.")]],
+    fl:["Total fan coil room load",[list(r=>+r.fl||0),step("Sum","",f(T.sfl)+" kW"),step("Drawing",f(SHEET.fl),`difference ${f(T.sfl-SHEET.fl)} kW`)]],
+    fcap:["Total installed fan coil capacity",[list(r=>r._x.fcap||0),step("Sum","",f(T.sfcap)+" kW")]],
+    fpct:["Overall fan coil capacity vs load",[step("",`${f(T.sfcap)} ÷ ${f(T.sfl)} × 100`,f(T.sfcap/T.sfl*100,1)+"%")]]
+  };
+  const [t,p]=M[b]; return[t,"Whole building",p.join("")];
+}
+function plantWork(b,s){
+  const tot=T.stot+T.sfl, nch=num("nch"),pch=num("pch"),nahu=num("nahu"),pahu=num("pahu");
+  if(b==="F"){const fit=fitF();
+    return["Load factor F derived from the drawing","Rooms whose load is ventilation air only",
+      `<ul class="sum">${fit.pts.map(p=>`<li>${esc(p.n)}: ${f(p.kw)} ÷ ${f(p.air,3)} = ${f(p.k,3)}</li>`).join("")}</ul>`+
+      step("F = drawing load ÷ (ṁ × cp × (To − Ti)), averaged",`${fit.pts.length} rooms`,f(fit.avg,3))+
+      note(`Rooms supplied at room temperature give a factor between 1.15 and 1.17, so the designer multiplied the sensible air load by about 1.15, typically a 15% allowance for latent heat and safety. It does not reflect the 90% RH outdoor condition in the notes; a full psychrometric calculation at 35 °C / 90% RH would give several times more.`)];}
+  if(b==="tot") return["Total plant load","Intake air + fan coil",
+    step("Intake air load + fan coil load",`${f(T.stot)} + ${f(T.sfl)}`,f(tot)+" kW")+step("Drawing note",f(SHEET.total),`difference ${f(tot-SHEET.total)} kW`)];
+  if(b==="ch") return["Chiller capacity",`${nch} chillers × ${pch}%`,
+    step("Each chiller = total × %",`${f(tot)} × ${pch}%`,f(tot*pch/100)+" kW")+
+    step("In tons of refrigeration",`${f(tot*pch/100)} ÷ 3.517`,f(tot*pch/100/3.517,1)+" TR")+
+    step("Using drawing total",`${f(SHEET.total)} × ${pch}%`,f(SHEET.total*pch/100)+" kW")+
+    step("With one chiller out",`${nch-1} × ${pch}%`,f((nch-1)*pch,0)+"% of load")];
+  if(b==="ahu") return["AHU capacity",`${nahu} AHUs × ${pahu}%`,
+    step("Each AHU = intake air load × %",`${f(T.stot)} × ${pahu}%`,f(T.stot*pahu/100)+" kW")+
+    step("Using drawing total",`${f(SHEET.kw)} × ${pahu}%`,f(SHEET.kw*pahu/100)+" kW")];
+}
+function showWork(key){const [t,s,h]=work(key);$("dT").textContent=t;$("dS").textContent=s;$("dB").innerHTML=h;$("dlg").showModal()}
+
+/* ---------- edit / add ---------- */
+/* only inputs are asked for; everything else is calculated */
+const INP={
+  n:["Room name","text"],e:["Elevation","text"],a:["Floor area m² (0 = open space)"],h:["Ceiling height m"],ti:["Room temp °C"],
+  ach:["Required ACH"],xf:["Exhaust fan no.","text"],xq:["Exhaust airflow m³/h"],qmin:["Minimum airflow m³/h"],
+  qeq:["Equipment heat kW"],ts:["Supply air temp Ts °C"],q:["Airflow m³/h"],
+  fl:["FCU room load kW"],fq:["FCU qty"],fm:["FCU model","text"],fe:["FCU kW each"],
+  dim:["Size as on drawing","text"],kw:["Intake load kW"],ft:["FCU total kW"]
+};
+const BYBASIS={ach:["ach"],exh:["xf","xq"],min:["qmin"],heat:["qeq","ts"],dwg:["q"]};
+const inp=(r,k)=>{const [l,t]=INP[k];return `<label class="f">${l}<input data-k="${k}" type="${t||"number"}" ${t?"":'step="any" inputmode="decimal"'} value="${esc(r[k]??"")}"></label>`};
+function editForm(r,isNew){
+  const ref=!r.nw&&!isNew;
+  const fcu=r.fl>0||r._fcu;
+  const basisFields=(BYBASIS[r.b]||[]).filter(k=>!(ref&&k==="q"));
+  return `<p class="dsec">Room</p><div class="egrid">${["n","e","a","h","ti"].map(k=>inp(r,k)).join("")}</div>
+  <p class="dsec">Ventilation intake air</p><div class="egrid">
+   <label class="f">Airflow basis<select data-k="b" id="bsel">${Object.entries(BASIS).map(([id,b])=>`<option value="${id}" ${r.b===id?"selected":""}>${b.t}</option>`).join("")}</select></label>
+   ${basisFields.map(k=>inp(r,k)).join("")}</div>
+  <p class="dnote" style="margin-top:4px">${esc((BASIS[r.b]||BASIS.dwg).d)}.${r.b==="heat"?" Ts must be below room temperature.":" Air is supplied at room temperature."}</p>
+  <p class="dsec"><label class="chk"><input type="checkbox" id="hasfcu" ${fcu?"checked":""}> Room has fan coil units</label></p>
+  ${fcu?`<div class="egrid">${["fl","fq","fm","fe"].map(k=>inp(r,k)).join("")}</div>`:""}
+  ${ref?`<details class="refd"><summary>Drawing reference values (for comparison only)</summary><div class="egrid">${["dim","q","kw",...(r.b==="heat"?[]:["ts"]),...(fcu?["ft"]:[])].map(k=>inp(r,k)).join("")}</div></details>`:""}
+  <div class="prev" id="prev"></div>
+  <div class="btns"><button class="b solid" id="sv">${isNew?"Add room":"Save"}</button>${isNew?"":`<button class="b del" id="dl">Delete room</button>`}</div>`;
+}
+function readForm(r){
+  $("dB").querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k,v=el.value;
+    r[k]=["n","e","dim","fm","xf","b"].includes(k)?v:(v===""?"":parseFloat(v))});
+  const c=$("hasfcu"); r._fcu=c?c.checked:false;
+}
+function normalize(r,isNew){
+  if(!r._fcu){["fl","fq","fm","fe","ft"].forEach(k=>delete r[k])}
+  delete r._fcu;
+  if(r.b!=="heat"&&(isNew||r.nw)) r.ts=r.ti;
+  if(r.b==="heat"&&!has(r.ts)) r.ts=r.ti;
+  if(isNew||r.nw){r.nw=true;r.dim=(r.a>0&&r.h>0)?`(${r.a})×${r.h}`:"Open space";}
+}
+function preview(r){
+  const t={...r}; normalize(t,!!r.nw||r._isNew);
+  const x=calc(t);
+  const warn=[];
+  if(!x.qreq&&!(x.q>0)) warn.push("Enter the values for the selected basis to get an airflow.");
+  if(t.b==="heat"&&has(t.ts)&&t.ts>=t.ti) warn.push("Supply temperature must be below room temperature.");
+  $("prev").innerHTML=`<p class="dsec">Calculated result</p><div class="pg">
+   <div><small>Airflow</small><b>${f(x.q,0)}</b> m³/h</div>
+   <div><small>ACH</small><b>${x.ach==null?"–":f(x.ach,1)}</b></div>
+   <div><small>Intake load</small><b>${f(x.tot)}</b> kW</div>
+   <div><small>Room heat removed</small><b>${f(x.absorbed)}</b> kW</div>
+   ${x.fcap?`<div><small>FCU capacity</small><b>${f(x.fcap)}</b> kW (${f(x.fpct,0)}%)</div>`:""}</div>
+   ${warn.map(w=>`<p class="dnote" style="color:var(--warn)">${w}</p>`).join("")}`;
+}
+function openForm(r,i){
+  const isNew=i==null;
+  r._isNew=isNew;
+  $("dT").textContent=isNew?"Add room":"Edit room"; $("dS").textContent=isNew?"Enter input values only; the rest is calculated":r.n;
+  const draw=()=>{
+    $("dB").innerHTML=editForm(r,isNew);
+    preview(r);
+    $("dB").querySelectorAll("input,select").forEach(el=>el.addEventListener("input",()=>{readForm(r);r._fcu=$("hasfcu").checked;preview(r)}));
+    $("bsel").addEventListener("change",()=>{readForm(r);draw()});
+    $("hasfcu").addEventListener("change",()=>{readForm(r);if(r._fcu&&!has(r.fq))r.fq=1;if(!r._fcu)r.fl="";draw()});
+    $("sv").onclick=()=>{readForm(r);
+      if(!String(r.n||"").trim()){alert("Please enter a room name.");return}
+      normalize(r,isNew);delete r._isNew;
+      if(isNew) rows.push(r);
+      $("dlg").close();render()};
+    if(!isNew) $("dl").onclick=()=>{if(confirm("Delete this room?")){rows.splice(i,1);$("dlg").close();render()}};
+  };
+  draw();
+  if(!$("dlg").open) $("dlg").showModal();
+}
+function showEdit(i){const r=rows[i]; r._fcu=r.fl>0; openForm(r,i)}
+$("dlg").addEventListener("close",()=>rows.forEach(r=>{delete r._fcu;delete r._isNew}));
+
+document.addEventListener("click",e=>{
+  const w=e.target.closest("[data-w]"); if(w){showWork(w.dataset.w);return}
+  const ed=e.target.closest("[data-edit]"); if(ed){showEdit(+ed.dataset.edit)}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"){const t=e.target.closest("[data-w],[data-edit]");if(t)t.click()}});
+$("dx").onclick=()=>$("dlg").close();
+$("dlg").addEventListener("click",e=>{if(e.target===$("dlg"))$("dlg").close()});
+document.querySelectorAll(".set input,.set select").forEach(i=>i.addEventListener("change",render));
+$("add").onclick=()=>openForm({n:"",e:"",a:"",h:"",ti:24,b:"ach",ach:2,nw:true},null);
+$("reset").onclick=()=>{if(confirm("Restore all data from the drawing? Your edits will be lost.")){try{localStorage.removeItem("hvacchk3")}catch(e){}location.reload()}};
+$("csv").onclick=async()=>{
+  const head="EL,Room,Size,Vol m3,Ti,Basis,Calc m3/h,Drawing m3/h,CFM,ACH req,ACH,Ts,Room heat kW,Calc load kW,Drawing kW,FCU load,Qty,Model,kW each,FCU total,Cap %";
+  const L=rows.map(r=>{const x=r._x;return[r.e,`"${r.n}"`,`"${r.dim}"`,x.V?x.V.toFixed(1):"",r.ti,(BASIS[r.b]||BASIS.dwg).t,x.qreq!=null?x.qreq.toFixed(0):"",x.qd,x.cfm.toFixed(0),r.ach,x.ach?x.ach.toFixed(1):"",x.ts,x.absorbed.toFixed(2),x.tot.toFixed(2),r.kw,r.fl||"",r.fq||"",r.fm||"",r.fe||"",x.fcap?x.fcap.toFixed(2):"",x.fpct?x.fpct.toFixed(0):""].join(",")});
+  try{await navigator.clipboard.writeText([head,...L].join("\n"));$("csv").textContent="Copied, paste into Excel"}catch(e){$("csv").textContent="Copy not supported in this browser"}
+  setTimeout(()=>$("csv").textContent="Copy results as CSV",2200);
+};
+
+const IDS=["to","rho","cp","F","qmode","nch","pch","nahu","pahu"];
+function save(){try{const o={rows:rows.map(({_x,_fcu,_isNew,...r})=>r)};IDS.forEach(i=>o[i]=$(i).value);localStorage.setItem("hvacchk3",JSON.stringify(o))}catch(e){}}
+function load(){try{const o=JSON.parse(localStorage.getItem("hvacchk3")||"null");if(!o)return false;rows=o.rows;IDS.forEach(i=>{if(o[i]!=null)$(i).value=o[i]});return true}catch(e){return false}}
+if(!load()){rows=JSON.parse(JSON.stringify(DATA));prefill();}
+render();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>
