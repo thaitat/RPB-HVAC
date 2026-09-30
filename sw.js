@@ -1,5 +1,5 @@
 // Offline cache for HVAC Check. Bump VERSION after every update.
-const VERSION = "hvac-check-v2";
+const VERSION = "hvac-check-v3";
 const SHELL = ["./", "./?app=hvac-check", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", e => {

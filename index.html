@@ -99,6 +99,12 @@ ul.sum{margin:6px 0;padding-left:18px;font-size:.85rem;font-variant-numeric:tabu
 .pg div{background:var(--cold-soft);border-radius:8px;padding:6px 10px;font-size:.85rem}
 .pg small{display:block;color:var(--muted);font-size:.72rem} .pg b{font-size:1.05rem;color:var(--cold)}
 .new{color:var(--warn);font-weight:600}
+.bk{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.bkinfo{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+.bkinfo.old{color:var(--warn)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.9rem;margin:6px 0}
+.kv span:nth-child(odd){color:var(--muted)}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:10px 12px;font-size:.92rem}
 .tag{display:inline-block;color:#fff;font-size:.72rem;font-weight:600;padding:1px 8px;border-radius:999px}
 .basis{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.78rem;color:var(--muted);margin:4px 0 10px}
 </style>
@@ -139,6 +145,16 @@ ul.sum{margin:6px 0;padding-left:18px;font-size:.85rem;font-variant-numeric:tabu
   <button class="b solid" id="add">Add room</button>
   <button class="b" id="csv">Copy results as CSV</button>
   <button class="b del" id="reset">Restore drawing data</button>
+</div>
+<div class="bk">
+  <b>Backup</b>
+  <div class="btns" style="margin-top:6px">
+    <button class="b solid" id="bk">Back up data</button>
+    <button class="b" id="rs">Restore from backup</button>
+    <button class="b" id="undo" hidden>Undo last restore</button>
+    <input type="file" id="rsf" accept=".json,application/json" hidden>
+  </div>
+  <p class="bkinfo" id="bkinfo"></p>
 </div>
 </div>
 
@@ -554,6 +570,93 @@ function save(){try{const o={rows:rows.map(({_x,_fcu,_isNew,...r})=>r)};IDS.forE
 function load(){try{const o=JSON.parse(localStorage.getItem("hvacchk3")||"null");if(!o)return false;rows=o.rows;IDS.forEach(i=>{if(o[i]!=null)$(i).value=o[i]});return true}catch(e){return false}}
 if(!load()){rows=JSON.parse(JSON.stringify(DATA));prefill();}
 render();
+
+/* ---------- backup / restore ---------- */
+const APP={id:"hvac-check",name:"HVAC Design Data Checker",schema:3};
+const LASTKEY=APP.id+"_lastbackup", UNDOKEY=APP.id+"_undo";
+const pad=n=>String(n).padStart(2,"0");
+function isoLocal(d){const o=-d.getTimezoneOffset(),sg=o>=0?"+":"-";
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sg}${pad(Math.floor(Math.abs(o)/60))}:${pad(Math.abs(o)%60)}`}
+const fmtDate=iso=>{const d=new Date(iso);return isNaN(d)?String(iso):d.toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+function snapshot(){const o={rows:rows.map(({_x,_fcu,_isNew,...r})=>r),settings:{}};IDS.forEach(i=>o.settings[i]=$(i).value);return o}
+function makeBackup(){
+  const iso=isoLocal(new Date());
+  const file=`${APP.id}_backup_${iso.slice(0,10)}_${iso.slice(11,13)}${iso.slice(14,16)}.json`;
+  const body={app:APP.id,appName:APP.name,schema:APP.schema,created:iso,summary:`${rows.length} rooms`,data:snapshot()};
+  return{file,iso,body,text:JSON.stringify(body,null,1)};
+}
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true}catch(e){return false}};
+function bkInfo(){
+  const last=lsGet(LASTKEY), el=$("bkinfo");
+  if(!last){el.textContent="No backup made on this device yet.";el.className="bkinfo old";}
+  else{const days=(Date.now()-new Date(last))/864e5;
+    el.textContent=`Last backup: ${fmtDate(last)}`+(days>7?` (${Math.floor(days)} days ago, time for a new backup)`:"");
+    el.className="bkinfo"+(days>7?" old":"");}
+  const u=lsGet(UNDOKEY); $("undo").hidden=!u;
+}
+function showBackup(){
+  const b=makeBackup();
+  const blob=new Blob([b.text],{type:"application/json"});
+  const canShare=!!(navigator.canShare&&window.File&&navigator.canShare({files:[new File([blob],b.file,{type:"application/json"})]}));
+  $("dT").textContent="Back up data"; $("dS").textContent=APP.name;
+  $("dB").innerHTML=`<div class="kv"><span>File</span><b style="overflow-wrap:anywhere">${esc(b.file)}</b><span>Contents</span><span>${esc(b.body.summary)} and settings</span><span>Created</span><span>${fmtDate(b.iso)}</span></div>
+  <div class="btns"><button class="b solid" id="bkSave">Save to device</button>${canShare?`<button class="b" id="bkShare">Share (Drive, LINE, email…)</button>`:""}</div>
+  <p class="dnote">Keep a copy somewhere other than this phone, for example Google Drive, so it survives if the browser data is cleared.</p>`;
+  const done=()=>{lsSet(LASTKEY,b.iso);bkInfo();$("dlg").close()};
+  $("bkSave").onclick=()=>{const u=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=u;a.download=b.file;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);done()};
+  if(canShare) $("bkShare").onclick=async()=>{
+    try{await navigator.share({files:[new File([blob],b.file,{type:"application/json"})],title:b.file});done()}
+    catch(e){if(e.name!=="AbortError")alert("Sharing failed. Use Save to device instead.")}};
+  $("dlg").showModal();
+}
+function migrate(o){
+  // Convert older backup formats here when the data structure changes (schema 3 is current).
+  if(o.schema===APP.schema) return o;
+  throw new Error(`This backup uses data format ${o.schema}, which this version cannot read.`);
+}
+function restoreError(msg){$("dT").textContent="Cannot restore";$("dS").textContent="";$("dB").innerHTML=`<div class="err">${esc(msg)}</div>`;if(!$("dlg").open)$("dlg").showModal()}
+function readBackup(file){
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let o;
+    try{o=JSON.parse(rd.result)}catch(e){return restoreError(`“${file.name}” is not a backup file (it is not valid JSON).`)}
+    if(!o||typeof o!=="object"||!o.app) return restoreError(`“${file.name}” has no app identity, so it is not a backup made by these apps.`);
+    if(o.app!==APP.id) return restoreError(`This file is a backup of “${o.appName||o.app}”, not ${APP.name}. Open it in that app instead.`);
+    if(typeof o.schema!=="number") return restoreError("The backup has no data format version.");
+    if(o.schema>APP.schema) return restoreError(`This backup was made by a newer version of the app (format ${o.schema}). Update the app first.`);
+    try{o=migrate(o)}catch(e){return restoreError(e.message)}
+    if(!o.data||!Array.isArray(o.data.rows)) return restoreError("The backup is damaged: the room list is missing.");
+    const els=[...new Set(o.data.rows.map(r=>r.e).filter(Boolean))].length;
+    $("dT").textContent="Restore from backup"; $("dS").textContent=file.name;
+    $("dB").innerHTML=`<div class="kv"><span>App</span><b>${esc(o.appName||o.app)}</b><span>Backed up</span><b>${fmtDate(o.created)}</b>
+      <span>Contents</span><span>${o.data.rows.length} rooms on ${els} elevations</span></div>
+      <p class="dnote">Current data (${rows.length} rooms) will be replaced. A copy of it is kept on this device so you can undo.</p>
+      <div class="btns"><button class="b solid" id="rsOk">Replace current data</button><button class="b" id="rsNo">Cancel</button></div>`;
+    $("rsNo").onclick=()=>$("dlg").close();
+    $("rsOk").onclick=()=>{
+      lsSet(UNDOKEY,JSON.stringify({created:isoLocal(new Date()),data:snapshot()}));
+      applyData(o.data);$("dlg").close();render();bkInfo();
+      $("bkinfo").textContent=`Restored backup from ${fmtDate(o.created)}. Use “Undo last restore” if this was the wrong file.`;$("bkinfo").className="bkinfo";
+    };
+    if(!$("dlg").open)$("dlg").showModal();
+  };
+  rd.onerror=()=>restoreError("The file could not be read.");
+  rd.readAsText(file);
+}
+function applyData(d){rows=d.rows.map(r=>({...r}));IDS.forEach(i=>{if(d.settings&&d.settings[i]!=null)$(i).value=d.settings[i]})}
+$("bk").onclick=showBackup;
+$("rs").onclick=()=>{$("rsf").value="";$("rsf").click()};
+$("rsf").onchange=e=>{const fl=e.target.files[0];if(fl)readBackup(fl)};
+$("undo").onclick=()=>{
+  let u;try{u=JSON.parse(lsGet(UNDOKEY))}catch(e){}
+  if(!u||!u.data) return;
+  if(!confirm(`Go back to the data you had before the last restore (${fmtDate(u.created)})?`)) return;
+  applyData(u.data);try{localStorage.removeItem(UNDOKEY)}catch(e){}
+  render();bkInfo();
+};
+bkInfo();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
 </script>
 </body>
